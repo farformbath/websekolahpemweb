@@ -7,6 +7,7 @@ import {
   dataSekolah,
   daftarBerita as initialBerita,
 } from "../../components/school-content";
+import { supabase, isSupabaseConfigured } from "../../lib/supabase";
 
 const initialGuru = dataSekolah.tenagaPendidik || [];
 const initialSarpras = dataSekolah.sarprasDetail || [];
@@ -230,6 +231,57 @@ function AdminDashboardContent() {
       terakhirCek: "20 Oktober 2026",
     }))
   );
+  // Live Supabase Sync (Project: ktsxrgqrlubjcuhplksk)
+  useEffect(() => {
+    if (isSupabaseConfigured && supabase) {
+      // Fetch PPDB
+      supabase
+        .from("ppdb_pendaftar")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .then(({ data, error }) => {
+          if (!error && data && data.length > 0) {
+            setPendaftar(
+              data.map((d) => ({
+                id: d.id,
+                nama: d.nama,
+                nisn: d.nisn,
+                asalSekolah: d.asal_sekolah,
+                jalur: d.jalur,
+                nilaiRapor: Number(d.nilai_rapor) || 0,
+                jarakZonasi: d.jarak_zonasi || "-",
+                berkas: Array.isArray(d.berkas) ? d.berkas : [],
+                status: d.status,
+                tanggal: d.tanggal,
+                catatan: d.catatan || "",
+              }))
+            );
+          }
+        });
+
+      // Fetch Berita
+      supabase
+        .from("berita")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .then(({ data, error }) => {
+          if (!error && data && data.length > 0) {
+            setBeritaList(data);
+          }
+        });
+
+      // Fetch Guru
+      supabase
+        .from("guru_ptk")
+        .select("*")
+        .then(({ data, error }) => {
+          if (!error && data && data.length > 0) {
+            setGuruList(data);
+          }
+        });
+    }
+  }, []);
+
 
   // Toast State
   const [toast, setToast] = useState(null);
@@ -329,7 +381,7 @@ function AdminDashboardContent() {
   }, [guruList, searchGuru]);
 
   // Action Handlers
-  const handleUpdateStatusPPDB = (id, newStatus, reason = "") => {
+  const handleUpdateStatusPPDB = async (id, newStatus, reason = "") => {
     setPendaftar((prev) =>
       prev.map((item) => {
         if (item.id === id) {
@@ -348,6 +400,16 @@ function AdminDashboardContent() {
         status: newStatus,
         catatan: reason || prev.catatan,
       }));
+    }
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase
+          .from("ppdb_pendaftar")
+          .update({ status: newStatus, catatan: reason || "" })
+          .eq("id", id);
+      } catch (err) {
+        console.error("Gagal update Supabase:", err);
+      }
     }
     showToast(`Status calon peserta didik ${id} diubah menjadi "${newStatus}"`);
   };
@@ -694,6 +756,11 @@ function AdminDashboardContent() {
             </div>
 
             <div className="flex items-center gap-2.5">
+              {/* Supabase Status Indicator */}
+              <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">
+                <span className={`w-1.5 h-1.5 rounded-full ${isSupabaseConfigured ? "bg-emerald-500 animate-pulse" : "bg-blue-500"}`} />
+                <span className="font-mono">Supabase: ktsxrgqrlubjcuhplksk</span>
+              </div>
               
               {/* THEME SWITCHER (Mode Siang & Malam) */}
               <button
@@ -1660,6 +1727,76 @@ function AdminDashboardContent() {
                     >
                       Reset Data Demo
                     </button>
+                  </div>
+                </div>
+
+                {/* Supabase Database Card */}
+                <div className="p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">⚡</span>
+                      <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                        Koneksi Database Cloud Supabase
+                      </h2>
+                    </div>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isSupabaseConfigured
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400"
+                          : "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-500/20 dark:text-blue-400"
+                      }`}
+                    >
+                      {isSupabaseConfigured ? "● Live Connected" : "● URL Terhubung"}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-slate-400 text-[11px]">Project Reference ID:</span>
+                        <div className="font-mono font-bold text-blue-600 dark:text-blue-400">
+                          ktsxrgqrlubjcuhplksk
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 text-[11px]">Project API Endpoint:</span>
+                        <div className="font-mono font-bold text-slate-700 dark:text-slate-300 truncate">
+                          https://ktsxrgqrlubjcuhplksk.supabase.co
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400 space-y-1.5">
+                      <p>
+                        Skema tabel telah dibuat di <strong className="font-mono text-slate-900 dark:text-white">supabase/schema.sql</strong> (PPDB, Berita, PTK, Sarpras).
+                      </p>
+                      <p>
+                        Untuk mengaktifkan sinkronisasi dua arah, salin <strong>Anon Public Key</strong> dari Project Settings &gt; API ke file <strong>.env.local</strong>:
+                      </p>
+                      <pre className="p-2 rounded bg-slate-200/70 dark:bg-slate-900 font-mono text-[10px] text-slate-800 dark:text-slate-200 overflow-x-auto">
+NEXT_PUBLIC_SUPABASE_URL=https://ktsxrgqrlubjcuhplksk.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJh...
+                      </pre>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <a
+                        href="https://supabase.com/dashboard/project/ktsxrgqrlubjcuhplksk/settings/api"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5"
+                      >
+                        Buka Supabase API Keys ↗
+                      </a>
+                      <a
+                        href="https://supabase.com/dashboard/project/ktsxrgqrlubjcuhplksk/sql/new"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5"
+                      >
+                        Buka SQL Editor ↗
+                      </a>
+                    </div>
                   </div>
                 </div>
 
